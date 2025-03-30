@@ -1,0 +1,34 @@
+/*
+//python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. blockchain.proto
+
+*/
+
+
+syntax = "proto3";
+
+package blockchain;
+
+service BlockchainService {
+  rpc BroadcastBlock (Block) returns (Response);
+  rpc RequestChain (Empty) returns (Chain);
+  rpc Ping (Empty) returns (Response);
+  rpc ResetChain(Empty) returns (Response);
+}
+
+message Block {
+  int32 index = 1;
+  double timestamp = 2;
+  string previous_hash = 3;
+  string hash = 4;
+  string transactions = 5; // JSON encoded
+}
+
+message Response {
+  string status = 1;
+}
+
+message Empty {}
+
+message Chain {
+  repeated Block blocks = 1;
+}

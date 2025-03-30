@@ -1,0 +1,87 @@
+services:
+
+  postgres:
+    image: postgres:14
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: blockchain_db
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    healthcheck:
+      test: ["CMD", "echo", "ruok", "|", "nc", "localhost", "2181"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka_service
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka_service:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  server:
+    build:
+      context: .
+    container_name: server
+    ports:
+      - "8000:8000"
+    depends_on:
+      - kafka
+      - postgres
+    volumes:
+      - .:/app
+    working_dir: /app
+
+  node1:
+    build:
+      context: .
+    container_name: node1
+    depends_on:
+      - kafka
+      - postgres
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      NODE_ID: node1
+      GRPC_PORT: 50051
+      PEER_ADDRESS: node2:50052
+      KAFKA_BOOTSTRAP: kafka:9092
+    command: python blockchain/node.py
+
+  node2:
+    build:
+      context: .
+    container_name: node2
+    depends_on:
+      - kafka
+      - postgres
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      NODE_ID: node2
+      GRPC_PORT: 50052
+      PEER_ADDRESS: node1:50051
+      KAFKA_BOOTSTRAP: kafka:9092
+    command: python blockchain/node.py

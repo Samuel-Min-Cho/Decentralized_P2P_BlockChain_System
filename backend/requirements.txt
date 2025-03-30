@@ -1,0 +1,7 @@
+ fastapi
+ uvicorn
+ grpcio
+ grpcio-tools
+ asyncpg
+ aiokafka
+ httpx

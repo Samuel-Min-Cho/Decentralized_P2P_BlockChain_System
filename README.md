@@ -1,64 +1,20 @@
-# Full-Stack React + Node.js Project
+docker-compose -f docker-compose.postgres.yml up -d
 
-This is a basic full-stack project with a **React frontend** and a **Node.js Express backend**.
+docker-compose -f docker-compose.kafka.yml up -d
 
-## 📁 Project Structure
-```
-full-stack-react-node/
-│-- frontend/        # React Frontend
-│   ├── src/        
-│   ├── src/components/ 
-│   ├── src/App.jsx 
-│   ├── src/main.jsx
-│   ├── src/index.css
-│-- backend/         # Node.js Backend
-│   ├── server.js 
-│-- package.json (for backend dependencies)
-│-- README.md
-```
+python server.py
 
-## 🚀 How to Run the Project
 
-### 1️⃣ Install Dependencies
+curl -X POST http://localhost:8000/transaction \
+  -H "Content-Type: application/json" \
+  -d '{"sender": "UserA", "recipient": "UserB", "amount": 25}'
 
-#### Backend (Node.js)
-```sh
-cd backend
-npm install express cors
-```
 
-#### Frontend (React)
-```sh
-cd frontend
-npm install
-```
+docker-compose up --build
 
-### 2️⃣ Start the Backend Server
-```sh
-cd backend
-node server.js
-```
-The backend runs on **http://localhost:5000/**.
+docker-compose build server
 
-### 3️⃣ Start the Frontend (React)
-```sh
-cd frontend
-npm run dev
-```
-The frontend runs on **http://localhost:5173/**.
+docker-compose up
 
-### 🔄 API Endpoint Test
-Open your browser and go to:
-- **Backend Root**: [http://localhost:5000/](http://localhost:5000/)
-- **API Data Endpoint**: [http://localhost:5000/api/data](http://localhost:5000/api/data)
 
-If everything is working, the React frontend will display data from the backend.
-
-## 📌 Features
-✅ React frontend with routing  
-✅ Node.js Express backend with API endpoints  
-✅ CORS enabled for frontend-backend communication  
-
----
-### 📩 Need Help?
-If you have any issues, feel free to ask for support! 🚀
+docker buildx build --platform linux/amd64 -t finalprojecct.azurecr.io/backend-image:latest . --push 
