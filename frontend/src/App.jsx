@@ -19,7 +19,7 @@ function App() {
     };
 
     try {
-      const res = await fetch("http://localhost:8000/transaction", {
+      const res = await fetch("http://135.234.244.237/transaction", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -43,7 +43,7 @@ function App() {
     if (!window.confirm("Reset blockchain and database?")) return;
 
     try {
-      const res = await fetch("http://localhost:8000/reset", {
+      const res = await fetch("http://135.234.244.237/reset", {
         method: "POST"
       });
 

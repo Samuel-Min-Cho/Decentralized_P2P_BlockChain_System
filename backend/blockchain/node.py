@@ -3,6 +3,7 @@ import os, time
 import sys
 from pydantic import BaseModel
 
+
 # Add project root to sys.path
 sys.path.append("/app")
 
@@ -27,9 +28,6 @@ async def handle_block(block):
         await db.save_transaction(tx)
     await grpc_client.send_block_to_peer(PEER_ADDRESS, block)
     print(f"[{NODE_ID}] Created block {block.index} and sent to {PEER_ADDRESS}", flush=True)
-
-import asyncpg
-import asyncio
 
 async def wait_for_wallets_initialized(retries=30, delay=2):
     print(f"[{NODE_ID}] Waiting for wallets to be fully initialized...", flush=True)
