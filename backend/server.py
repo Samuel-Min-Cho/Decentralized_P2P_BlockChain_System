@@ -1,4 +1,4 @@
-import uvicorn, random, subprocess, asyncio, json, time
+import uvicorn, random, asyncio, json, time, os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
@@ -11,7 +11,8 @@ from blockchain.db import Database
 from proto import blockchain_pb2_grpc, blockchain_pb2
 import grpc
 
-KAFKA_BOOTSTRAP = "kafka_service:9092"
+
+KAFKA_BOOTSTRAP = os.environ["KAFKA_BOOTSTRAP"]
 
 producer = KafkaTxProducer(KAFKA_BOOTSTRAP)
 db = Database()
@@ -38,24 +39,32 @@ async def lifespan(app: FastAPI):
     await db.init_wallets()
     print("[SERVER] DB connected", flush=True)
 
-    await safe_start_producer()
-    print("[SERVER] Kafka producer is ready", flush=True)
+    try:
+        await safe_start_producer()
+        print("[SERVER] Kafka producer is ready", flush=True)
+    except Exception as e:
+        print(f"[WARN] Kafka not available: {e}")
+        app.state.kafka_enabled = False
+    else:
+        app.state.kafka_enabled = True
 
-    app.state.first_transaction_processed = False  # 👈 Add this line
+    app.state.first_transaction_processed = False
 
-
-    yield  # App runs while inside this block
+    yield  # Run app
 
     # === Shutdown ===
-    await producer.stop()
+    if app.state.kafka_enabled:
+        await producer.stop()
     await db.disconnect()
+
     print("[SERVER] Clean shutdown.")
+
 
 
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # or restrict to ["http://localhost:5173"]
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -78,7 +87,7 @@ async def get_chain_via_grpc(address):
                     "timestamp": block.timestamp,
                     "previous_hash": block.previous_hash,
                     "hash": block.hash,
-                    "transactions": block.transactions,
+                    "transactions": json.loads(block.transactions),
                 }
                 for block in response.blocks
             ]
@@ -108,7 +117,6 @@ async def reset_blockchain():
 async def send_transaction(tx: Transaction):
     tx_data = tx.model_dump()
     tx_data["processor"] = random.choice(["node1", "node2"])
-    tx_json = json.dumps(tx_data)
 
     try:
         await producer.send(tx_data)
@@ -123,7 +131,7 @@ async def send_transaction(tx: Transaction):
 
             while time.time() - start < timeout:
                 chain = await get_chain_via_grpc(peer_address)
-                if any(tx_json in block["transactions"] for block in chain):
+                if any(tx_data in block["transactions"] for block in chain):
                     break
                 await asyncio.sleep(interval)
 
@@ -145,7 +153,7 @@ async def send_transaction(tx: Transaction):
             }
         }
 
-        print(json.dumps(result, indent=2))
+        print(result)
         return result
 
     except Exception as e:

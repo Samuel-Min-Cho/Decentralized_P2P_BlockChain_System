@@ -45,8 +45,16 @@ class Database:
 
     async def init_wallets(self):
         async with self.pool.acquire() as conn:
-            await conn.execute("INSERT INTO wallets (address, balance) VALUES ('UserA', 100)")
-            await conn.execute("INSERT INTO wallets (address, balance) VALUES ('UserB', 100)")
+            await conn.execute("""
+                INSERT INTO wallets (address, balance)
+                VALUES ('UserA', 100)
+                ON CONFLICT (address) DO NOTHING
+            """)
+            await conn.execute("""
+                INSERT INTO wallets (address, balance)
+                VALUES ('UserB', 100)
+                ON CONFLICT (address) DO NOTHING
+            """)
             print("[DB] Wallets initialized.")
 
     async def save_transaction(self, tx: dict):

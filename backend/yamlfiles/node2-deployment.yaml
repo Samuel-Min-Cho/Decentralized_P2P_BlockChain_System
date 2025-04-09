@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: node2
+  template:
+    metadata:
+      labels:
+        app: node2
+    spec:
+      containers:
+      - name: node2
+        image: coe892finalmc.azurecr.io/backend-node-image:latest
+        imagePullPolicy: Always
+        command: ["python"]
+        args: ["blockchain/node.py"]
+        ports:
+        - containerPort: 50052
+        env:
+        - name: NODE_ID
+          value: node2
+        - name: GRPC_PORT
+          value: "50052"
+        - name: PEER_ADDRESS
+          value: node1:50051
+        - name: KAFKA_BOOTSTRAP
+          value: kafka:9092

@@ -1,0 +1,271 @@
+# Zookeeper Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zookeeper
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      containers:
+        - name: zookeeper
+          image: bitnami/zookeeper:latest
+          ports:
+            - containerPort: 2181
+          env:
+            - name: ALLOW_ANONYMOUS_LOGIN
+              value: "yes"
+---
+# Zookeeper Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+spec:
+  selector:
+    app: zookeeper
+  ports:
+    - protocol: TCP
+      port: 2181
+      targetPort: 2181
+
+---
+# Kafka Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+      - name: kafka
+        image: bitnami/kafka:3.6.0  # pick a stable version known to support Zookeeper well
+        ports:
+        - containerPort: 9092
+        env:
+        - name: KAFKA_CFG_ZOOKEEPER_CONNECT
+          value: zookeeper:2181
+        - name: ALLOW_PLAINTEXT_LISTENER
+          value: "yes"
+        - name: KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP
+          value: PLAINTEXT:PLAINTEXT
+        - name: KAFKA_CFG_LISTENERS
+          value: PLAINTEXT://:9092
+        - name: KAFKA_CFG_ADVERTISED_LISTENERS
+          value: PLAINTEXT://kafka:9092
+        - name: KAFKA_CFG_BROKER_ID
+          value: "1"
+        - name: KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE
+          value: "true"
+
+
+---
+# Kafka Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+spec:
+  selector:
+    app: kafka
+  ports:
+    - protocol: TCP
+      port: 9092
+      targetPort: 9092
+
+
+---
+# PostgreSQL Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:14
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_PASSWORD
+          value: password
+        - name: POSTGRES_DB
+          value: blockchain_db
+
+---
+# PostgreSQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP
+
+---
+# FastAPI Deployment (patched env section)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fastapi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fastapi
+  template:
+    metadata:
+      labels:
+        app: fastapi
+    spec:
+      containers:
+      - name: fastapi
+        image: coe892finalmc.azurecr.io/backend-fastapi-image:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DB_HOST
+          value: postgres
+        - name: KAFKA_BOOTSTRAP
+          value: kafka:9092
+
+---
+# FAST API Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: fastapi
+spec:
+  selector:
+    app: fastapi
+  ports:
+  - port: 80
+    targetPort: 8000
+  type: LoadBalancer
+
+---
+# Node1 Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: node1
+  template:
+    metadata:
+      labels:
+        app: node1
+    spec:
+      containers:
+      - name: node1
+        image: coe892finalmc.azurecr.io/backend-node-image:latest
+        imagePullPolicy: Always
+        workingDir: /app
+        command: ["python", "blockchain/node.py"]
+        ports:
+        - containerPort: 50051
+        env:
+        - name: NODE_ID
+          value: node1
+        - name: GRPC_PORT
+          value: "50051"
+        - name: PEER_ADDRESS
+          value: node2:50052
+        - name: KAFKA_BOOTSTRAP
+          value: kafka:9092
+
+---
+# Node1 Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: node1
+spec:
+  selector:
+    app: node1
+  ports:
+    - protocol: TCP
+      port: 50051
+      targetPort: 50051
+
+---
+# Node2 Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: node2
+  template:
+    metadata:
+      labels:
+        app: node2
+    spec:
+      containers:
+      - name: node2
+        image: coe892finalmc.azurecr.io/backend-node-image:latest
+        imagePullPolicy: Always
+        workingDir: /app
+        command: ["python", "blockchain/node.py"]
+        ports:
+        - containerPort: 50052
+        env:
+        - name: NODE_ID
+          value: node2
+        - name: GRPC_PORT
+          value: "50052"
+        - name: PEER_ADDRESS
+          value: node1:50051
+        - name: KAFKA_BOOTSTRAP
+          value: kafka:9092
+
+---
+# Node2 Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: node2
+spec:
+  selector:
+    app: node2
+  ports:
+    - protocol: TCP
+      port: 50052
+      targetPort: 50052
+
